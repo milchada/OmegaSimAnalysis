@@ -90,7 +90,7 @@ def compare_runs_a( property,a=None):
 	ax1.set_xlim(10,1000)
 	handles, labels = ax1.get_legend_handles_labels()
 	ax1.legend(handles, labels, loc='best')
-	ax1.set_ylabel(propname[properties==property]+units[properties.index(property)])
+	ax1.set_ylabel(propname[properties==property]+' ('+units[properties.index(property)+')'])
 	ax1.set_xlabel('R (kpc)')
 	fig1.savefig(homedir+property+'.png')
 

@@ -1,11 +1,12 @@
-from numpy import sqrt
+import numpy as np
+from evolution_plots import *
 
 def getSelfSimilarValues (mvir, delta, crit=True, aexp=1.0, omega_m=0.27, omega_l=0.73,	omega_b = 0.0469, hubble=0.7 ) :
     ''' 
     Return self-similar quantites (e.g. T500c) for temperature [keV] pressure [erg/cm^3], and entropy [keV cm^2] given halo mass mvir [Msun/h], its overdensity delta, with respect to critical (crit=True) or mean (crit=False) at expansion factor aexp (= 1.0 by default). Assume WMAP5 cosmological parameters (true for Bolshoi and L500 simulations).
     '''
     fb = omega_b/omega_m
-    Ez = sqrt(omega_m/aexp**3.0+omega_l)
+    Ez = np.sqrt(omega_m/aexp**3.0+omega_l)
     mu = 0.59
     mue = 1.14
 

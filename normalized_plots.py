@@ -1,47 +1,22 @@
 #self-similarity
 #plot all quantities normalized to values as R_200c
 #for comparison with McDonald et al
+from evolution_plots import *
 from normalize_properties import *
+
+mH = 1.67e-24 #g
+proplist = ['temperature', 'pressure', 'entropy', 'density']
+propnames = ['T', 'P', 'K']
 
 def Prop_norm_delta(property='entropy', snapshot, delta=200):
 	massfile = glob.glob(snapshot+'/halo_profile_ma*')[0]
 	with open(massfile,'r') as file:
 		header = file.readlines()[10]
 	mvir = float(header.split(' ')[9])
-	Tvir, Pvir, Kvir = getSelfSimilarValues(mvir, delta, crit=True, aexp=1.0, omega_m=0.27, omega_l=0.73,	omega_b = 0.0469, hubble=0.7 )
-	profile = compute_profile('entropy',snapshot)
-	return profile/Kvir
-
-def normPlot(property):
-	names=['a04','a10']
-	snaps = [0.4,1.0]
-	zs = [1.5, 0]
-	for ind in xrange(len(snaps)):
-		plt.clf()
-		scalefactor = snaps[ind]
-		colours = cm.rainbow(np.linspace(0,1, len(runs)))
-		for run, colour in zip(runs, colours):
-			snapshot = closest_snap_run(scalefactor, rundir=run)
-			
-			virfile = glob.glob(snapshot+'/halo_list_500c_a*')[0]
-			with open(virfile,'r') as file:
-			    header = file.readlines()[-1]
-			Rvir = float(header.split(' ')[1])
-
-			normed_entropy = Prop_norm_delta(property, snapshot)
-			
-			label = runname[runs==run]
-			plt.plot(radii/Rvir, normed_entropy, color=colour, label =label)
-		plt.yscale('log')
-		plt.xscale('log')
-		plt.ylim(1e-3, 10)
-		plt.xlim(.03, 13)
-		plt.ylabel(r'K/K$_{crit}$')
-		plt.xlabel(r'r/R$_{500}$')
-		plt.legend(loc='best')
-		plt.title('z='+str(zs[ind]))
-		# name = str(scalefactor*10)
-		plt.savefig(homedir+'/'+names[ind])
+	prop_virs = getSelfSimilarValues(mvir, delta, crit=True, aexp=1.0, omega_m=0.27, omega_l=0.73,	omega_b = 0.0469, hubble=0.7 ) #T, P, K
+	propvir = prop_virs[proplist.index(property)] 
+	profile = compute_profile(property,snapshot)
+	return profile/propvir
 
 m_H = 1.67e-27 #g
 def E(z, omega_m=0.27, omega_l=0.73):
@@ -93,6 +68,67 @@ def selfSimilarity():
 	ax.legend(handles, labels)
 	fig.savefig(homedir+'/selfsimilarity_comparison.png')
 
+def delta_r(snapshot, delta=500, fineness=10, crit=True, omega_m=0.27, omega_l=0.73,    omega_b = 0.0469, hubble=0.7 ) :
+    aexp = float(snapshot.split('/')[-1])
+    Ez = np.sqrt(omega_m/aexp**3.0+omega_l)
+    rho_crit_a = rho_crit_0*(Ez**2)
+    mass = read_run(snapshot, prop='mass')
+    gas_index = m.profile_columns['gas_M_cum']
+    dm_index = m.profile_columns['dark_M_cum']
+    star_index = m.profile_columns['star_M_cum']
+    total_mass = mass[:,gas_index]+mass[:,dm_index]+mass[:,star_index]
+    fine_radii = np.arange(radii.min, radii.max, len(radii)*fineness)
+    fine_mass = np.interp(fine_radii, radii, total_mass)
+    volume = 4*np.pi*np.power(fine_radii,3)/3
+    return fine_radii, np.divide(fine_mass, volume*rho_crit_a) #unitless
+    
+def Rdelta(delta_r, delta, fine_radii):
+	r_delta = fine_radii[abs(delta_r - delta)==min(abs(delta_r - delta))]
+    return r_delta
+
+def profile_gas(snapshot, fineness = 10, delta=False, omega_m=0.27, omega_l=0.73, omega_b= 0.0469):
+	aexp = float(snapshot.split('/')[-1])
+	Ez = np.sqrt(omega_m/aexp**3.0+omega_l)
+    rho_crit_gas = rho_crit_0*(Ez**2)*omega_b
+    mass = read_run(snapshot, prop='mass')
+	gas_index = m.profile_columns['gas_M_cum']
+	fine_radii = np.arange(radii.min, radii.max, len(radii)*fineness)
+	gas_profile = np.interp(fine_radii, radii, mass[:,gas_index])
+	if delta==True:
+		delta_gas = gas_profile/rho_crit_gas
+	else:
+		delta_gas = gas_profile/(Ez**2*mH)
+	return delta_gas
+
+
+def normPlot(property, snapshot):
+	scalefactor = float(snapshot.split('/')[-1])
+	z = 1./aexp - 1
+	plt.clf()
+	colours = cm.rainbow(np.linspace(0,1, len(runs)))
+	for run, colour in zip(runs, colours):
+		snapshot = closest_snap_run(scalefactor, rundir=run)
+		fine_radii, overdensities = delta_r(snapshot)
+		Rvir = Rdelta(overdensities, 500, fine_radii)
+		if property == 'density':
+			normed_profile = profile_gas(snapshot) #following Nagai07b. If we want overdensity, set delta=True
+		else:
+			normed_profile = Prop_norm_delta(property, snapshot)		
+		label = runname[runs==run]
+		plt.plot(radii/Rvir, normed_profile, color=colour, label =label)
+	plt.yscale('log')
+	plt.xscale('log')
+	plt.xlim(.03, 3)
+	propname = propnames[proplist==property]
+	if property == 'density':
+		plt.ylabel(r'$n_{gas}(r)E^{-2}(z)[cm^{-3}]$')
+	else:
+		ylabel = propname+'/'+propname
+		plt.ylabel(ylabel+r'$_{500}$')
+	plt.xlabel(r'r/R$_{500}$')
+	plt.legend(loc='best')
+	plt.title('z='+str(z))
+	plt.savefig(homedir+'/'+property+str(scalefactor)+'_normed.png')
+
 if __name__ == '__main__':
-	normEntropyPlot()
-	selfSimilarity()
+	normPlot()
