@@ -1,5 +1,4 @@
 import numpy as np
-from evolution_plots import *
 
 def getSelfSimilarValues (mvir, delta, crit=True, aexp=1.0, omega_m=0.27, omega_l=0.73,	omega_b = 0.0469, hubble=0.7 ) :
     ''' 

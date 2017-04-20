@@ -6,6 +6,7 @@ from matplotlib.pyplot import cm
 import glob
 import os
 import mass_headers as m
+import gastherm as gt
 
 sciencedir = '/lustre/scratch/client/fas/nagai/projects/L100_0'
 homedir = '/home/fas/nagai/uc24'
@@ -15,10 +16,8 @@ runs = ['/CSF','/AGN/CCA/recentering/fiducial','/AGN/CCA/largethermal/fiducial',
 runname = ['No AGN', r'$r_{FB}$=3, $\alpha$=2', r'$r_{FB}$=25, $\alpha$=2', r'$r_{FB}$=10, $\alpha$=2', r'$r_{FB}$=50, $\alpha$=2', r'$r_{FB}$=25, $\alpha$=1', r'$r_{FB}$=25, $\alpha$=3']
 #but if you could just print r_K in kpc we could convert r_fb to kpc and that's SUPER USEFUL
 
-keys = ['gas_temperature(mass-weighted) [K','gas_entropy(mass-weighted) [keV cm ^ 2', 'gas_density(emission-weighted) [g cm^{-3}', 'gas X-ray emission [erg /s']
-properties = ['temperature','entropy', 'density', 'gas_frac', 'star_frac']
-propname = ['T', 'K', r'$\rho$', r'$f_{gas}(<r)$', r'$f_*$(<r)']
-units = ['K', r'keV cm$^{-2}$', r'g cm$^{-3}$','','']
+properties = ['gas_frac', 'star_frac']
+propname = [r'$f_{gas}(<r)$', r'$f_*$(<r)']
 
 samplefile = glob.glob(sciencedir+runs[3]+'/profile_analysis/profiles/0.6257/*profile_radius_bin_a*')[0]
 radii = np.genfromtxt(samplefile)[:,0]	
@@ -27,17 +26,6 @@ def read_run(snapshot, prop='gas'):
 	gasfile = glob.glob(snapshot+'/*profile_'+prop+'_a*')[0]
 	gas = np.genfromtxt(gasfile)
 	return gas
-
-def compute_profile(property, snap):
-	gas = read_run(snap)
-
-	with open(homedir+'/gas_colnames.txt','r') as file:
-	    colnames=file.readlines()[1]
-	gas_colnames = colnames.split('] ')
-	
-	propkey = [key for key in keys if property in key][0]
-	# print gas_colnames.index(propkey), gas.keys()
-	return gas[:,gas_colnames.index(propkey)]
 
 def mass_fractions(snapshot):
 	mass = read_run(snapshot, prop='mass')
@@ -58,49 +46,47 @@ def closest_snap_run(a, rundir=runs[2]):
 	closest_snap = snaps[np.where(abs(a_s - a) == min(abs(a_s - a)))[0]]
 	return closest_snap
 
-def compare_runs_a( property,a=None):
-	fig1 = plt.figure()
-	fig2 = plt.figure()
-	ax1 = fig1.add_subplot(111)
-	ax2 = fig2.add_subplot(111)
-	# print last_fid_snapshot_cca, last_fid_snapshot_bondi
+def applyPlotStyle(ax, ylabel, title, snapshot):
+	ax.set_xlabel('R (kpc)')
+	ax.set_title(title)
+	ax.set_xscale('log')
+	ax.set_xlim(10,1000)
+	handles, labels = ax.get_legend_handles_labels()
+	ax.legend(handles, labels, loc='best')
+	ax.ylabel(ylabel)
+	fine_radii, delta_r = gt.delta_r(snapshot)
+	r500 = gt.Rdelta(delta_r, 500, fine_radii)
+	r2500 = gt.Rdelta(delta_r, 2500, fine_radii)
+	ymin, ymax = ax.get_ylim()
+	ax.vlines(r500, ymin, ymax, linestyle='dashed', label=r'$R_{500c}$')
+	ax.vlines(r2500, ymin, ymax, linestyle='dashed', label=r'$R_{2500c}$')
+
+def compare_runs_a(a=None):
+	fig1, ax1 = plt.subplots()
+	fig2, ax2 = plt.subplots()
 	colors = cm.rainbow(np.linspace(0,1, len(runs)))
 	for run, color in zip(runs, colors):
 		print run.split('/')
-		if a== None:
-			last_snapshot = sorted(glob.glob(os.getcwd()+run+'/profile_analysis/profiles/*'))[-1]
-		else: 
-			last_snapshot = closest_snap_run(a, run)
-		if property == 'gas_frac':
-			profile, mass_frac = mass_fractions(last_snapshot)
-		elif property == 'star_frac':
-			gas_frac, profile = mass_fractions(last_snapshot)
-		else:
-			profile = compute_profile(property,last_snapshot)
+		last_snapshot = closest_snap_run(a, run)
+		gas_frac, mass_frac = mass_fractions(last_snapshot)
 		label = runname[runs==run]
-		ax1.plot(radii, profile,color=color,label=label)
-	if a != None:
-		title = 'a = '+str(a)+' '+property
-		ax1.set_title(title)
-	else:
-		ax1.set_title('a = 1 '+property)
-	if (property != 'gas_frac') and (property != 'star_frac'):
-		ax1.set_yscale('log')
-	ax1.set_xscale('log')
-	ax1.set_xlim(10,1000)
-	handles, labels = ax1.get_legend_handles_labels()
-	ax1.legend(handles, labels, loc='best')
-	ax1.set_ylabel(propname[properties==property]+' ('+units[properties.index(property)+')'])
-	ax1.set_xlabel('R (kpc)')
-	fig1.savefig(homedir+property+'.png')
+		ax1.plot(radii, gas_frac, color=color,label=label)
+		ax1.hlines(0.15, 10,1000,linestyle='dashed',label=r'$f_{b,cosmic}$')
+		ax2.plot(radii, star_frac, color=color, label=label)
+	title = 'a = '+str(a)+' '+property
+	ylabel_gas = propname[0]+' ('+units[0]+')'
+	applyPlotStyle(ax1, ylabel_gas, title)
+	ylabel_star = propname[1]+' ('+units[1]+')'
+	applyPlotStyle(ax2, ylabel_star, title)
+	fig1.savefig(homedir+'fgas_'+str(a)+'.png')
+	fig2.savefig(homedir+'fstar_'+str(a)+'.png')
 
 def plot_evolution():
 	for property in properties:
 		for run in runs:
 			rundir = os.getcwd()+'/'+run+'/profile_analysis/profiles/*'
 			snapshots = sorted(glob.glob(rundir)) #this gives a list of paths to each snapshot
-			fig1 = plt.figure()
-			ax1 = fig1.add_subplot(111)
+			fig1, ax1 = plt.subplots()
 			colors = cm.rainbow(np.linspace(0,1, len(snapshots)))
 			plt.rcParams['legend.fontsize']= 'small'
 			for snapshot, color in zip(snapshots,colors):
@@ -112,7 +98,7 @@ def plot_evolution():
 					elif property == 'star_frac':
 						gas_frac, profile = mass_fractions(snapshot)
 					else:
-						profile = compute_profile(property, snapshot)
+						profile = gt.compute_profile(property, snapshot)
 					lines=ax1.plot(radii, profile, c=color,label=snapname[0:4])
 				except (KeyError, ValueError, IndexError) as e:
 					print 'oops!'
@@ -143,10 +129,8 @@ def core_evolution(property):
 			try:
 				if property == 'gas_frac':
 					snap_profile, star_frac = mass_fractions(snapshot)
-				elif property == 'star_frac':
-					gas_frac, snap_profile = mass_fractions(snapshot)
 				else:
-					snap_profile = compute_profile(property,snapshot)
+					gas_frac, snap_profile = mass_fractions(snapshot)
 				profile.append(snap_profile[0])
 				snaps.append(snapshot.split('/')[-1])
 			except (KeyError, ValueError, IndexError) as e:
@@ -156,8 +140,6 @@ def core_evolution(property):
 		plt.plot(snaps, profile, c=color, label = label)
 		print run, ' done!'
 	plt.ylabel(property)
-	if (property != 'gas_frac') and (property != 'star_frac'):
-		plt.yscale('log')
 	plt.legend(loc='best')
 	plt.title('Evolution of Central Bin')
 	plt.xlabel('Scale Factor')
@@ -166,7 +148,6 @@ def core_evolution(property):
 
 if __name__ == '__main__':
 	a_latest = float(input("Snapshot at which to compare runs: "))
-	for property in properties:
-		compare_runs_a(property, a=a_latest)
-		core_evolution(property)
-	plot_evolution()
+	compare_runs_a(property, a=a_latest)
+	# for property in properties:
+	# 	core_evolution(property)

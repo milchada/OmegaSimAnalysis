@@ -1,12 +1,26 @@
-#self-similarity
-#plot all quantities normalized to values as R_200c
+#plot all quantities normalized to values as R_500c
 #for comparison with McDonald et al
-from evolution_plots import *
-from normalize_properties import *
+from massfrac import *
+from normalize import *
 
 mH = 1.67e-24 #g
+"""
+CONFIRM PRESSURE KEY BELOW FROM gas_colnames.txt on omega
+"""
+keys = ['gas_temperature(mass-weighted) [K','gas_pressure(mass-weighted) [','gas_entropy(mass-weighted) [keV cm ^ 2', 'gas_density(emission-weighted) [g cm^{-3}', 'gas X-ray emission [erg /s']
 proplist = ['temperature', 'pressure', 'entropy', 'density']
 propnames = ['T', 'P', 'K']
+
+def compute_profile(property, snap):
+	gas = read_run(snap)
+
+	with open(homedir+'/gas_colnames.txt','r') as file:
+	    colnames=file.readlines()[1]
+	gas_colnames = colnames.split('] ')
+	
+	propkey = [key for key in keys if property in key][0]
+	# print gas_colnames.index(propkey), gas.keys()
+	return gas[:,gas_colnames.index(propkey)]
 
 def Prop_norm_delta(property='entropy', snapshot, delta=200):
 	massfile = glob.glob(snapshot+'/halo_profile_ma*')[0]
@@ -68,9 +82,9 @@ def selfSimilarity():
 	ax.legend(handles, labels)
 	fig.savefig(homedir+'/selfsimilarity_comparison.png')
 
-def delta_r(snapshot, delta=500, fineness=10, crit=True, omega_m=0.27, omega_l=0.73,    omega_b = 0.0469, hubble=0.7 ) :
+def delta_r(snapshot, fineness=10, crit=True, omega_m=0.27, omega_l=0.73,    omega_b = 0.0469, hubble=0.7 ) :
     aexp = float(snapshot.split('/')[-1])
-    Ez = np.sqrt(omega_m/aexp**3.0+omega_l)
+    Ez = E(1./aexp - 1)
     rho_crit_a = rho_crit_0*(Ez**2)
     mass = read_run(snapshot, prop='mass')
     gas_index = m.profile_columns['gas_M_cum']
@@ -83,12 +97,11 @@ def delta_r(snapshot, delta=500, fineness=10, crit=True, omega_m=0.27, omega_l=0
     return fine_radii, np.divide(fine_mass, volume*rho_crit_a) #unitless
     
 def Rdelta(delta_r, delta, fine_radii):
-	r_delta = fine_radii[abs(delta_r - delta)==min(abs(delta_r - delta))]
-    return r_delta
+	return fine_radii[abs(delta_r - delta)==min(abs(delta_r - delta))]
 
 def profile_gas(snapshot, fineness = 10, delta=False, omega_m=0.27, omega_l=0.73, omega_b= 0.0469):
 	aexp = float(snapshot.split('/')[-1])
-	Ez = np.sqrt(omega_m/aexp**3.0+omega_l)
+	Ez = E(1./aexp - 1)
     rho_crit_gas = rho_crit_0*(Ez**2)*omega_b
     mass = read_run(snapshot, prop='mass')
 	gas_index = m.profile_columns['gas_M_cum']

@@ -1,66 +1,43 @@
 import yt
-import glob
-import os
-import matplotlib.pylab as plt
-import numpy as np 
-from cv2 import VideoWriter, VideoWriter_fourcc, imread, resize
+from massfrac import *
 
-sim_sub_type = os.getcwd().split('_')[-1]
-snaps = sorted(glob.glob(os.getcwd()+"/DAT/*.art"))
-a_plus = [snap.split('a0')[-1] for snap in snaps][2:]
-a_sp = [aplus.split('.')[-2] for aplus in a_plus]
-a_s = np.asarray([float(asp)/pow(10,len(asp)) for asp in a_sp])
+def run_snaps(run):
+    os.chdir(sciencedir+run)
+    snaps = sorted(glob.glob(os.getcwd()+"/DAT/*.art"))
+    a_plus = [snap.split('a0')[-1] for snap in snaps[2:-1]] #to leave out a=1
+    a_sp = [aplus.split('.')[-2] for aplus in a_plus]
+    return ['0.'+asp for asp in a_sp]
 
-print a_s
-field = "entropy"
-snapsdone = len(glob.glob(os.getcwd()+'/yt/'+field+'/*'))
+def snapsdone(property = "entropy"):
+    return len(glob.glob(os.getcwd()+'/yt/'+property+'/*'))
 
 def find_center(ds):
 	v, c = ds.find_max("density")
 	return c
 
-def make_images():
-	for a in a_s[snapsdone:-1]: #because the last snapshot won't start with a0., instead with a1.
+def formatPlot(plot, center):
+    plot.set_center((center[0],center[2]))
+    plot.set_width((2,'Mpc'))
+    plot.set_axes_unit('Mpc')
+    plot.save()
+
+def make_images(run):
+    os.chdir(sciencedir+run)
+    os.mkdir(yt)
+	for a in run_snaps(run): #i think this should do the chdir as well. test.
 		name = str(a)
 		if len(name) < 6:
 			for i in xrange(6-len(name)):
 				name += '0'
 		ds = yt.load("DAT/L100_a%s.art" %  name)
-		p = yt.ProjectionPlot(ds, "y", field)
-		p.save()
-
-def make_video(images, outimg=None, fps=5, size=None,
-               is_color=True, format="XVID"):
-    """
-    Create a video from a list of images.
- 
-    @param      outvid      output video
-    @param      images      list of images to use in the video
-    @param      fps         frame per second
-    @param      size        size of each frame
-    @param      is_color    color
-    @param      format      see http://www.fourcc.org/codecs.php
-    @return                 see http://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_gui/py_video_display/py_video_display.html
- 
-    The function relies on http://opencv-python-tutroals.readthedocs.org/en/latest/.
-    By default, the video will have the size of the first image.
-    It will resize every image to this size before adding them to the video.
-    """
-    fourcc = VideoWriter_fourcc(*format)
-    vid = None
-    for image in images:
-        if not os.path.exists(image):
-            raise FileNotFoundError(image)
-        img = imread(image)
-        if vid is None:
-            if size is None:
-                size = img.shape[1], img.shape[0]
-            vid = VideoWriter(outvid, fourcc, float(fps), size, is_color)
-        if size[0] != img.shape[1] and size[1] != img.shape[0]:
-            img = resize(img, size)
-        vid.write(img)
-    vid.release()
-    return vid
+        center = find_center(ds)
+		col_density = yt.ProjectionPlot(ds, "y", 'density')
+        formatPlot(col_density, center)
+        col_density.save()
+        for property in ['temperature','pressure','entropy']:
+            plot = yt.SlicePlot(ds, 'y', property)
+            formatPlot(plot, center)
 
 if __name__=='__main__':
-	make_images()
+	for run in runs:
+        make_images(run)
