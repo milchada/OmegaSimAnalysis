@@ -16,8 +16,8 @@ runs = ['/CSF','/AGN/CCA/recentering/fiducial','/AGN/CCA/largethermal/fiducial',
 runname = ['No AGN', r'$r_{FB}$=3, $\alpha$=2', r'$r_{FB}$=25, $\alpha$=2', r'$r_{FB}$=10, $\alpha$=2', r'$r_{FB}$=50, $\alpha$=2', r'$r_{FB}$=25, $\alpha$=1', r'$r_{FB}$=25, $\alpha$=3']
 #but if you could just print r_K in kpc we could convert r_fb to kpc and that's SUPER USEFUL
 
-properties = ['gas_frac', 'star_frac']
-propname = [r'$f_{gas}(<r)$', r'$f_*$(<r)']
+properties = ['gas_frac', 'star_frac', 'm_cum']
+propname = [r'$f_{gas}(<r)$', r'$f_*$(<r)', r'M(<r)($10^{14}M_\odot$)']
 
 samplefile = glob.glob(sciencedir+runs[3]+'/profile_analysis/profiles/0.6257/*profile_radius_bin_a*')[0]
 radii = np.genfromtxt(samplefile)[:,0]	
@@ -35,7 +35,7 @@ def mass_fractions(snapshot):
 	total_mass = mass[:,gas_index]+mass[:,dm_index]+mass[:,star_index]
 	gas_frac = np.divide(mass[:,gas_index], total_mass)
 	star_frac = np.divide(mass[:,star_index], total_mass)
-	return gas_frac, star_frac
+	return gas_frac, star_frac, total_mass
 
 def closest_snap_run(a, rundir=runs[2]):
 	rundir += '/profile_analysis/profiles/*'
@@ -81,40 +81,39 @@ def compare_runs_a(a=None):
 	fig1.savefig(homedir+'fgas_'+str(a)+'.png')
 	fig2.savefig(homedir+'fstar_'+str(a)+'.png')
 
-def plot_evolution():
-	for property in properties:
-		for run in runs:
-			rundir = os.getcwd()+'/'+run+'/profile_analysis/profiles/*'
-			snapshots = sorted(glob.glob(rundir)) #this gives a list of paths to each snapshot
-			fig1, ax1 = plt.subplots()
-			colors = cm.rainbow(np.linspace(0,1, len(snapshots)))
-			plt.rcParams['legend.fontsize']= 'small'
-			for snapshot, color in zip(snapshots,colors):
-				snapname = snapshot.split('/')[-1]
-				print run, snapname
-				try:
-					if property == 'gas_frac':
-						profile, star_frac = mass_fractions(snapshot)
-					elif property == 'star_frac':
-						gas_frac, profile = mass_fractions(snapshot)
-					else:
-						profile = gt.compute_profile(property, snapshot)
-					lines=ax1.plot(radii, profile, c=color,label=snapname[0:4])
-				except (KeyError, ValueError, IndexError) as e:
-					print 'oops!'
-					continue
-			ax1.set_title(property+' in '+run)
-			if (property != 'gas_frac') and (property != 'star_frac'):
-				ax1.set_yscale('log')
-			ax1.set_xscale('log')
-			ax1.set_xlim(10,1000)
-			handles, labels = ax1.get_legend_handles_labels()
-			ax1.legend(handles, labels)
-			ax1.set_ylabel(propname[properties==property]+units[properties.index(property)])
-			ax1.set_xlabel('R (kpc)')
-			# fig1.colorbar(lines)
-			label = runname[runs==run]
-			fig1.savefig(homedir+'/gas_'+property+'_evoln_'+label+'.png')
+def plot_evolution(property):
+	for run in runs:
+		rundir = os.getcwd()+'/'+run+'/profile_analysis/profiles/*'
+		snapshots = sorted(glob.glob(rundir)) #this gives a list of paths to each snapshot
+		fig1, ax1 = plt.subplots()
+		colors = cm.rainbow(np.linspace(0,1, len(snapshots)))
+		plt.rcParams['legend.fontsize']= 'small'
+		for snapshot, color in zip(snapshots,colors):
+			snapname = snapshot.split('/')[-1]
+			print run, snapname
+			try:
+				if property in properties:
+					index = properties.index(property)
+					profiles = mass_fractions(snapshot)
+					profile = profiles[index]
+				else:
+					profile = gt.compute_profile(property, snapshot)
+				lines=ax1.plot(radii, profile, c=color,label=snapname[0:4])
+			except (KeyError, ValueError, IndexError) as e:
+				print 'oops!'
+				continue
+		ax1.set_title(property+' in '+run)
+		if (property != 'gas_frac') and (property != 'star_frac'):
+			ax1.set_yscale('log')
+		ax1.set_xscale('log')
+		ax1.set_xlim(10,1000)
+		handles, labels = ax1.get_legend_handles_labels()
+		ax1.legend(handles, labels)
+		ax1.set_ylabel(propname[properties==property]+units[properties.index(property)])
+		ax1.set_xlabel('R (kpc)')
+		# fig1.colorbar(lines)
+		label = runname[runs==run]
+		fig1.savefig(homedir+'/gas_'+property+'_evoln_'+label+'.png')
 
 def core_evolution(property):
 	colors = cm.rainbow(np.linspace(0,1, len(runs)))
@@ -144,6 +143,7 @@ def core_evolution(property):
 	plt.title('Evolution of Central Bin')
 	plt.xlabel('Scale Factor')
 	plt.savefig(homedir+'/'+property+'_in_core_allruns.png')
+	#add merger lines here?
 
 
 if __name__ == '__main__':
