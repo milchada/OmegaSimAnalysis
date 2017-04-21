@@ -22,7 +22,7 @@ def compute_profile(property, snap):
 	# print gas_colnames.index(propkey), gas.keys()
 	return gas[:,gas_colnames.index(propkey)]
 
-def Prop_norm_delta(property='entropy', snapshot, delta=200):
+def Prop_norm_delta( snapshot, property='entropy', delta=200):
 	massfile = glob.glob(snapshot+'/halo_profile_ma*')[0]
 	with open(massfile,'r') as file:
 		header = file.readlines()[10]
@@ -126,7 +126,7 @@ def normPlot(property, snapshot):
 		if property == 'density':
 			normed_profile = profile_gas(snapshot) #following Nagai07b. If we want overdensity, set delta=True
 		else:
-			normed_profile = Prop_norm_delta(property, snapshot)		
+			normed_profile = Prop_norm_delta(snapshot, property)		
 		label = runname[runs==run]
 		plt.plot(radii/Rvir, normed_profile, color=colour, label =label)
 	plt.yscale('log')
