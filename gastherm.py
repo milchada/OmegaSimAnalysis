@@ -102,8 +102,8 @@ def Rdelta(delta_r, delta, fine_radii):
 def profile_gas(snapshot, fineness = 10, delta=False, omega_m=0.27, omega_l=0.73, omega_b= 0.0469):
 	aexp = float(snapshot.split('/')[-1])
 	Ez = E(1./aexp - 1)
-    rho_crit_gas = rho_crit_0*(Ez**2)*omega_b
-    mass = read_run(snapshot, prop='mass')
+	rho_crit_gas = rho_crit_0*(Ez**2)*omega_b
+	mass = read_run(snapshot, prop='mass')
 	gas_index = m.profile_columns['gas_M_cum']
 	fine_radii = np.arange(radii.min, radii.max, len(radii)*fineness)
 	gas_profile = np.interp(fine_radii, radii, mass[:,gas_index])
