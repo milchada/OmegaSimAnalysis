@@ -1,5 +1,10 @@
 import yt
-from massfrac import *
+
+sciencedir = '/lustre/scratch/client/fas/nagai/projects/L100_0'
+homedir = '/home/fas/nagai/uc24'
+os.chdir(sciencedir)
+runs = ['/CSF','/AGN/CCA/recentering/fiducial','/AGN/CCA/largethermal/fiducial', '/AGN/CCA/largethermal/rfb10', '/AGN/CCA/largethermal/rfb50','/AGN/CCA/largethermal/slope1','/AGN/CCA/largethermal/slope3']
+runname = ['No AGN', r'$r_{FB}$=3, $\alpha$=2', r'$r_{FB}$=25, $\alpha$=2', r'$r_{FB}$=10, $\alpha$=2', r'$r_{FB}$=50, $\alpha$=2', r'$r_{FB}$=25, $\alpha$=1', r'$r_{FB}$=25, $\alpha$=3']
 
 def run_snaps(run):
     os.chdir(sciencedir+run)
